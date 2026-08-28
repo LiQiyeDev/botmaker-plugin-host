@@ -1,0 +1,16 @@
+jdk:
+  - openjdk21
+install:
+  # The committed pom pins botmaker.studioapi.version to 0.0.0-SNAPSHOT (the reactor/dev value). JitPack
+  # cannot resolve a SNAPSHOT, so the tag is injected via -D at build time and the committed pom is never
+  # edited. It comes from .deps.env, written by the umbrella release.sh in this release's own commit, so it
+  # is the contract release this tag was actually cut against rather than whatever
+  # `git ls-remote --tags | tail -1` happens to return.
+  #
+  # REQUIRED rather than defaulted, for the reason botmaker-sdk's jitpack.yml gives: pom.xml runs
+  # flatten-maven-plugin, so whatever is injected here is BAKED INTO the published pom. A stale default
+  # would point every consumer of a hand-cut tag at a long-dead contract. Failing the build with a readable
+  # message is strictly better than publishing that.
+  - . ./.deps.env
+  - '[ -n "${STUDIO_API_TAG:-}" ] || { echo "ERROR: .deps.env must pin STUDIO_API_TAG. Cut releases with the umbrella release.sh, which writes it into the release commit." >&2; exit 1; }'
+  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B -Dbotmaker.studioapi.version=$STUDIO_API_TAG

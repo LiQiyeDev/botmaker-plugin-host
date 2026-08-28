@@ -1,0 +1,96 @@
+name: CI
+
+# Three jobs, the same shape as the other BotMaker library repos: `build` on every push and PR, `release`
+# and `jitpack` only on a version tag.
+#
+# Tests DO run here rather than being skipped. The suite is PluginLoaderTest and it takes a fraction of a
+# second, and what it holds is the pair of behaviours with no visible symptom when they are wrong: the
+# parent-first/child-first split, whose failure surfaces much later as a ClassCastException between two
+# identically named classes, and `nothing loadable answers null`, whose failure is a project opening with
+# no menus at all rather than the bundled ones.
+#
+# botmaker-studio-api is resolved from source, not from JitPack: this repo's pom pins
+# ${botmaker.studioapi.version} = 0.0.0-SNAPSHOT — the version the umbrella reactor and a local
+# `mvn install` produce — so there is no published artifact under that coordinate to download.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The plugin contract. `provided` scope here — a host declares it itself, because the parent-first arm
+      # exists precisely so a contract class is ONE Class object on both sides of the boundary — but the
+      # build needs it present.
+      - name: Check out botmaker-studio-api
+        uses: actions/checkout@v4
+        with:
+          repository: LiQiyeDev/botmaker-studio-api
+          path: .deps/botmaker-studio-api
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install botmaker-studio-api (0.0.0-SNAPSHOT)
+        run: mvn -B -f .deps/botmaker-studio-api/pom.xml install -DskipTests
+
+      - name: Build and test
+        run: mvn -B verify
+
+  # The GitHub Release, published by JReleaser from the tag the umbrella's release.sh pushed.
+  #
+  # It runs HERE and not from the umbrella working copy for a measured reason, recorded in jreleaser.yml:
+  # in a submodule checkout `.git` is a FILE (`gitdir: ../.git/modules/<mod>`) and JReleaser's JGit reports
+  # "repository not found", while --git-root-search gets past it only by resolving the UMBRELLA repository.
+  # A CI checkout is standalone, so neither problem exists. The tag itself stays release.sh's, because tag
+  # ORDER across the nine repositories is the one thing JReleaser has no way to express.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The SAME script release.sh calls to gate this release (check_changelog). One extractor, two readers
+      # in two repositories: a release whose notes come from a different rule than the one that gated it can
+      # pass the gate and then publish something else. A missing section exits non-zero and fails the job,
+      # which is the right outcome — release.sh should already have refused it.
+      - name: Extract the changelog section
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p target
+          tools/changelog-section.sh "$version" > target/jreleaser-changelog.md
+          echo "JRELEASER_PROJECT_VERSION=$version" >> "$GITHUB_ENV"
+
+      # The version comes from the tag via JRELEASER_PROJECT_VERSION above, never from the pom: JitPack
+      # serves every tag as com.github.LiQiyeDev:<repo>:<tag> and the pom's <version> is cosmetic.
+      - name: Publish the release
+        uses: jreleaser/release-action@v2
+        with:
+          version: 1.25.0
+          arguments: full-release
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # JitPack builds the artifact itself from the pushed tag; this just asks it to start eagerly so the first
+  # consumer doesn't wait. No secrets required.
+  jitpack:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger JitPack build for ${{ github.ref_name }}
+        run: |
+          curl -sf "https://jitpack.io/api/builds/com.github.${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.ref_name }}" || true

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      groupId is com.github.LiQiyeDev for the same reason as every other published module: JitPack serves
+      this repo as com.github.LiQiyeDev:botmaker-plugin-host:<tag> whatever this pom says, so matching it
+      here makes the reactor GAV identical to the published GAV. The version is cosmetic.
+    -->
+    <groupId>com.github.LiQiyeDev</groupId>
+    <artifactId>botmaker-plugin-host</artifactId>
+    <version>0.0.0-SNAPSHOT</version>
+
+    <name>BotMaker Plugin Host</name>
+    <description>
+        Loading a BotMaker Studio plugin out of one project's own resolved jars: the inverted-delegation
+        classloader and the ServiceLoader pass, so every host loads a plugin the same way Studio does.
+    </description>
+
+    <!--
+      THIS MODULE IS A HOST'S DEPENDENCY, AND THE MIRROR IMAGE OF botmaker-plugin-toolkit. The toolkit is
+      what a PLUGIN compiles against and is resolved onto the plugin's own classloader; this is what loads
+      that plugin, and it belongs to whatever is doing the loading — Studio, the CLI's `validate` and `run`,
+      the registry's CI.
+
+      It is a module rather than eighty lines copied into each of them because the parent-first/child-first
+      split is precisely the code that must not drift between two copies: a wrong answer there produces a
+      ClassCastException between two classes with identical names, which PluginLoader's own javadoc calls
+      the least diagnosable failure available.
+
+      It is NOT in botmaker-shared, which would drag OpenCV and JNA into a CLI, and NOT in the toolkit,
+      which is a plugin's dependency — loading plugins is the host's job.
+    -->
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <junit.version>5.10.2</junit.version>
+        <!-- The reactor/offline value. jitpack.yml injects the released tag from .deps.env at build time. -->
+        <botmaker.studioapi.version>0.0.0-SNAPSHOT</botmaker.studioapi.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!--
+          The contract, at `provided` scope, and the scope is load-bearing rather than tidy. A host has the
+          contract already — it implements SlotContext/StudioServices — and the whole point of the loader is
+          that a contract class is the SAME Class object on both sides of the boundary. A transitive second
+          copy is the one thing that can make that false, so this module refuses to supply one.
+
+          A consumer therefore declares botmaker-studio-api itself. Studio already does.
+        -->
+        <dependency>
+            <groupId>com.github.LiQiyeDev</groupId>
+            <artifactId>botmaker-studio-api</artifactId>
+            <version>${botmaker.studioapi.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!--
+              Bakes ${botmaker.studioapi.version} into the pom that is installed and published. Without it a
+              -D on the command line changes what THIS build resolves and nothing about what a consumer
+              resolving this module from JitPack sees — which is exactly the 0.0.0-SNAPSHOT bug that shipped
+              in every SDK up to v1.0.24.
+
+              flattenMode=oss with <repositories>keep</repositories>: oss strips the jitpack repository
+              declaration otherwise, and a consumer resolving a com.github.LiQiyeDev artifact needs it.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <configuration>
+                    <flattenMode>oss</flattenMode>
+                    <pomElements>
+                        <repositories>keep</repositories>
+                    </pomElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
