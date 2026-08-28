@@ -21,9 +21,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   child-first for everything else. Parent-first for the contract because a contract class must be the *same*
   `Class` object on both sides of the boundary; child-first for `com.botmaker.sdk.**` because a bot's
   palette must come from the SDK **it** pins and not from the one the host was compiled against.
-- **`PluginLoaderTest`** (9) — the split, including the case the dot-terminated prefixes exist for
-  (`com.botmaker.plugin.apix.*` must **not** be parent-first); the three ways a classpath answers `null`;
-  and a real `ServiceLoader` round trip through the child-first fallback arm.
+- **Fail-open covers a plugin whose own dependency is missing.** `open` catches `LinkageError` as well as
+  `ServiceConfigurationError` and `RuntimeException`. A plugin jar resolved without one of its own
+  dependencies — the toolkit absent from a project's classpath is the ordinary way — fails inside
+  `ServiceLoader`'s `Class.forName` as a `NoClassDefFoundError`, which is an `Error` and escaped: it aborted
+  whatever the host was doing, which is opening a project. Deliberately not `Error`: a broken plugin must
+  not make an `OutOfMemoryError` look like a missing services file. Found on 2026-08-28 by loading the
+  plugin archetype's own skeleton.
+- **`PluginLoaderTest`** (10) — the split, including the case the dot-terminated prefixes exist for
+  (`com.botmaker.plugin.apix.*` must **not** be parent-first); the four ways a classpath answers `null`,
+  including a plugin whose superclass is missing — built by compiling one against a helper and then deleting
+  the helper's `.class`, which is exactly the state a jar resolved without its dependency is in; and a real
+  `ServiceLoader` round trip through the child-first fallback arm.
 
 ### Deliberately absent
 

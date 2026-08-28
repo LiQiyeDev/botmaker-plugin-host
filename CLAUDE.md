@@ -60,9 +60,16 @@ one thing that can make that false. So this module refuses to supply one, and a 
 ## Building
 
 ```bash
-mvn test        # PluginLoaderTest (9)
+mvn test        # PluginLoaderTest (10)
 mvn install     # com.github.LiQiyeDev:botmaker-plugin-host:0.0.0-SNAPSHOT
 ```
+
+**Fail-open catches `LinkageError` too, and that is the arm most likely to fire.** A plugin resolved without
+one of its own dependencies fails inside `ServiceLoader`'s `Class.forName` as a `NoClassDefFoundError` —
+an `Error`, which walked past the original catch and aborted the host's project-open until 2026-08-28. It is
+deliberately not `Error`: a broken plugin must not make an `OutOfMemoryError` look like a missing services
+file. Note the shape a test for it needs — a missing class named only inside a method body resolves lazily
+and does **not** reproduce; the absent class has to be a supertype.
 
 Do not add a test that asserts `open` returned non-null on a real jar you built in `target/`. What is worth
 holding is what has **no visible symptom when it is wrong**: the parent-first rule, and *nothing loadable

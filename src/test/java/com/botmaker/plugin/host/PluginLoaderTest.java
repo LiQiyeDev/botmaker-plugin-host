@@ -4,6 +4,8 @@ import com.botmaker.plugin.api.StudioPlugin;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * What a host is entitled to assume of the loader.
@@ -103,6 +106,42 @@ class PluginLoaderTest {
             assertEquals(1, loaded.plugins().size());
             assertEquals("test.stub", loaded.plugins().get(0).id());
         }
+    }
+
+    @Test
+    void a_plugin_whose_own_dependency_is_missing_answers_null(@TempDir Path dir) throws IOException {
+        // Found on 2026-08-28 by loading the archetype's skeleton with the toolkit left off the classpath.
+        // ServiceLoader's Class.forName throws NoClassDefFoundError — an Error, not a RuntimeException — so
+        // before the LinkageError arm it left `open` and aborted the host's project-open.
+        //
+        // Built rather than described: a plugin is compiled against a helper, the helper's .class is then
+        // deleted, which is exactly the state a jar resolved without its dependency is in.
+        JavaCompiler javac = ToolProvider.getSystemJavaCompiler();
+        assumeTrue(javac != null, "no javac in this JRE");
+
+        Path src = Files.createDirectories(dir.resolve("src/p"));
+        // The helper is a SUPERCLASS, which is what the real case looks like: the archetype's skeleton
+        // extends the toolkit's AbstractStudioPlugin. A missing class named only inside a method body would
+        // not reproduce this — the JVM resolves those lazily, so the plugin would load and fail later.
+        Files.writeString(src.resolve("Helper.java"),
+                "package p; public abstract class Helper { public String name() { return \"broken\"; } }");
+        Files.writeString(src.resolve("BrokenPlugin.java"),
+                "package p; public final class BrokenPlugin extends Helper"
+                        + " implements com.botmaker.plugin.api.StudioPlugin {"
+                        + " @Override public String id() { return name(); } }");
+
+        Path classes = Files.createDirectories(dir.resolve("classes"));
+        String contract = StudioPlugin.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        int status = javac.run(null, null, null,
+                "-cp", contract, "-d", classes.toString(),
+                src.resolve("Helper.java").toString(), src.resolve("BrokenPlugin.java").toString());
+        assumeTrue(status == 0, "could not compile the fixture");
+
+        Files.delete(classes.resolve("p/Helper.class"));
+        Path services = Files.createDirectories(classes.resolve("META-INF/services"));
+        Files.writeString(services.resolve("com.botmaker.plugin.api.StudioPlugin"), "p.BrokenPlugin\n");
+
+        assertNull(PluginLoader.open(List.of(classes.toString())));
     }
 
     @Test

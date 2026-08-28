@@ -39,6 +39,24 @@ Nine tests landed with it, where Studio had none for this class: the split (incl
 dot-terminated prefixes exist for), the three ways a classpath answers `null`, and a real `ServiceLoader`
 round trip that goes through the child-first fallback arm.
 
+### 2026-08-28 — fail-open did not cover the commonest failure
+
+Found the same day, by the plugin archetype (plan phase 6): loading a generated skeleton with the toolkit
+left off the classpath threw `NoClassDefFoundError` straight out of `open`. `ServiceLoader`'s
+`Class.forName` raises it when a provider's **superclass** is absent, and it is an `Error` — so it walked
+past `catch (ServiceConfigurationError | RuntimeException)` and would have aborted Studio's project-open
+rather than falling back to the bundled plugins. Exactly the class of failure the null return exists for,
+and the *likeliest* one in the wild: a plugin resolved without its own dependency.
+
+`LinkageError` joins the catch. Deliberately **not** `Error` — a broken plugin must not make an
+`OutOfMemoryError` look like a missing services file.
+
+The test builds the state rather than describing it: compile a plugin against a helper superclass, delete
+the helper's `.class`, load. It fails without the fix, which was checked. Note the shape, because a weaker
+fixture does **not** reproduce: a missing class named only inside a method body resolves lazily, so the
+plugin loads happily and fails later. It has to be a supertype — which is what a real plugin extending
+`AbstractStudioPlugin` has.
+
 ## Deferred / next
 
 - **A second host is the proof.** Studio consuming this changes nothing about Studio; the module earns its

@@ -96,7 +96,13 @@ public final class PluginLoader implements Closeable {
             for (StudioPlugin plugin : ServiceLoader.load(StudioPlugin.class, loader)) {
                 found.add(plugin);
             }
-        } catch (ServiceConfigurationError | RuntimeException e) {
+        } catch (ServiceConfigurationError | LinkageError | RuntimeException e) {
+            // LinkageError is not decoration. A plugin whose jar is present but whose OWN dependency is not
+            // — the toolkit missing from a resolved classpath is the ordinary way — fails inside
+            // ServiceLoader's Class.forName as a NoClassDefFoundError, which is an Error and would
+            // otherwise leave here and abort whatever the host was doing: opening a project.
+            // Deliberately not `Error`: a broken plugin must not make an OutOfMemoryError look like a
+            // missing services file.
             System.err.println("Warning: could not load plugins from the project classpath: " + e);
         }
         if (found.isEmpty()) {
