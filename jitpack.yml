@@ -11,15 +11,6 @@ install:
   # flatten-maven-plugin, so whatever is injected here is BAKED INTO the published pom. A stale default
   # would point every consumer of a hand-cut tag at a long-dead contract. Failing the build with a readable
   # message is strictly better than publishing that.
-  #
-  # PLUGIN_PROTOCOL_TAG is required on the same terms, since 2026-08-30: ProcessPlugin is built on
-  # botmaker-plugin-protocol, and flatten bakes that pin into the published pom too.
-  #
-  # NOTE — this module cannot be released until botmaker-plugin-protocol is its own GitHub repository.
-  # It presently lives as a directory inside the umbrella, which resolves in the reactor and nowhere else,
-  # so a JitPack build of this tag would fail to resolve it. That is deliberate rather than overlooked:
-  # a pin that cannot resolve fails loudly here instead of publishing a pom nobody can use.
   - . ./.deps.env
   - '[ -n "${STUDIO_API_TAG:-}" ] || { echo "ERROR: .deps.env must pin STUDIO_API_TAG. Cut releases with the umbrella release.sh, which writes it into the release commit." >&2; exit 1; }'
-  - '[ -n "${PLUGIN_PROTOCOL_TAG:-}" ] || { echo "ERROR: .deps.env must pin PLUGIN_PROTOCOL_TAG. Cut releases with the umbrella release.sh, which writes it into the release commit." >&2; exit 1; }'
-  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B -Dbotmaker.studioapi.version=$STUDIO_API_TAG -Dbotmaker.pluginprotocol.version=$PLUGIN_PROTOCOL_TAG
+  - mvn install -DskipTests -Dmaven.javadoc.skip=true -B -Dbotmaker.studioapi.version=$STUDIO_API_TAG

@@ -37,32 +37,6 @@ Two things to know before you write the second line:
 - **`close()` is required.** An open `URLClassLoader` holds every jar it read, and on Windows a held jar
   cannot be replaced — a project left unclosed makes the next dependency resolve fail on a file lock.
 
-## Plugins in another process
-
-A companion plugin can also run outside the JVM entirely, in any language, speaking
-[`botmaker-plugin-protocol`](https://github.com/LiQiyeDev/botmaker-plugin-protocol) over its own stdin and
-stdout. It arrives at the same `CompanionPlugin` interface, so a host that draws a toolbar cannot tell the
-two apart:
-
-```java
-for (CompanionDescriptor declared : CompanionDescriptor.discover(project.resolvedClasspath())) {
-    try {
-        companions.add(ProcessPlugin.launch(declared, new ServicesPeer(services, Platform::runLater),
-                HostInfo.of("BotMaker Studio", version, projectDir, resourcesDir), statusBar::say));
-    } catch (CompanionLaunchException broken) {
-        statusBar.say(broken.getMessage());   // and carry on: the project still opens
-    }
-}
-```
-
-- **A plugin declares itself** with a `META-INF/botmaker/companion.json` on the project's classpath, naming
-  the command and its working directory. So it is installed, resolved and removed as an ordinary Maven
-  dependency, with no second install path.
-- **`CompanionLaunchException` is checked**, and that is the design. A process that will not start or will
-  not answer must become a line in a status bar, never a project that hangs on opening.
-- **A plugin that dies is restarted once**, and a second death is reported with its own last stderr lines.
-- **`close()` — or `projectClosing()` — ends the process.** A shutdown hook reaps it if the JVM exits first.
-
 ## Why it is a module and not eighty lines you copy
 
 Delegation is inverted: **parent-first** for `com.botmaker.plugin.api.**` and the platform namespaces,
@@ -77,8 +51,7 @@ names.
 ## Building
 
 ```bash
-mvn test        # 47 — the delegation split, the nulls, a real ServiceLoader round trip, and a real second
-                #      process that misbehaves on request
+mvn test        # PluginLoaderTest (9) — the split, the nulls, and a real ServiceLoader round trip
 mvn install     # com.github.LiQiyeDev:botmaker-plugin-host:0.0.0-SNAPSHOT
 ```
 
