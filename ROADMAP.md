@@ -5,6 +5,54 @@ reasoning.
 
 ## Done
 
+### 2026-08-30 — a second transport: plugins in another process
+
+Companion-plugins plan, phase 3. Four new classes — `CompanionDescriptor` finds one, `ProcessPlugin` runs
+one, `ServicesPeer` is the host seen from the other side, `Wire` is the translation — plus 37 tests.
+
+**What it makes true.** A host asking a plugin for its toolbar items cannot tell whether the answer came
+from a `ServiceLoader` or from a Node process. That is the payoff of the two-interface split: every member
+of `CompanionPlugin` was drawn to be expressible as data, `botmaker-plugin-protocol` is that data on a wire,
+and this module is where the two meet. One plugin interface, two transports, and only this file tree knows
+there is a second one.
+
+**The promise this phase exists to keep: a broken companion plugin cannot stop a project from opening.**
+Three new failure modes, three named answers — a bounded, `CompanionLaunchException`-throwing `launch`
+(checked, so the compiler makes a host decide); supervision through `Process.onExit()` with exactly one
+restart; and nothing after the handshake that the host waits on.
+
+**Two things found while building it, both worth carrying:**
+
+- **LSP4J does not fail a pending request when the stream underneath it closes.** A plugin that crashed
+  mid-handshake therefore cost the full timeout and was reported as *"did not answer"* — the worst possible
+  diagnostic, since its author has an exit code and a stack trace in front of them. Fixed by racing
+  `initialize` against `Process.onExit()`; the message became *"exited (3) before answering the
+  handshake"* and the test suite went from 19.5 s to 4.5 s.
+- **LSP4J's default executor is a plain cached pool with non-daemon threads**, which would keep the JVM
+  alive after the editor's last window closed. Every launcher here gets a daemon factory, which is why
+  `Peers` has the executor overload at all.
+
+**The module's own rule was restated rather than quietly broken.** It read *nothing here may name a type
+outside `com.botmaker.plugin.api` and the JDK*, and it could not survive this phase: the protocol module
+deliberately names no BotMaker type, so the translation has to live with whoever has both, and only the host
+has both. The rule that was actually load-bearing — *a command-line host must get the contract, the
+protocol, and nothing else worth mentioning* — is stated in `CLAUDE.md` with the dependency table that
+enforces it.
+
+**Deliberately not built.** Extraction of a plugin's files out of its jar (`workingDirectory` resolves
+against the classpath entry, and a jar is not a directory to start a process in — the dropped asset-bundle
+question, still with one caller). A `Runs` subscription made here (a second lifecycle beside the host's).
+A retry loop (once, then reported).
+
+**Recorded gap:** `Capture.selectRegion` signals a cancel by never calling back, and a request-response
+wire has no silence to offer, so `ServicesPeer` arms a ten-minute timeout that resolves cancelled. That is a
+leak-stopper, not a fix; the fix is a contract member for "the user dismissed it", which has to be argued on
+the host-is-the-only-possible-source test in its own right.
+
+**Blocking a release:** `botmaker-plugin-protocol` is a directory inside the umbrella, not its own
+repository, so it resolves in the reactor and nowhere else. `jitpack.yml` requires `PLUGIN_PROTOCOL_TAG` so
+that fails loudly instead of publishing an unresolvable pom.
+
 ### 2026-08-28 — the module exists, as a pure extraction
 
 Plugin-ecosystem plan, phase 5. `PluginLoader` moved out of `botmaker-studio` with **no behaviour change**:
