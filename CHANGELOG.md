@@ -9,6 +9,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **`PluginLoader.companions()`** — the `CompanionPlugin`s on the same classpath, beside `plugins()`. Two
+  lists rather than one merged list, because the two interfaces are unrelated types and a host wants each
+  kind separately: a palette comes from one, a toolbar from both. `open()` now returns a loader when the
+  classpath carries **either** kind — a project whose only plugin is a companion used to be treated as a
+  project with no plugins at all. The `ServiceLoader` pass is one generic method serving both, so the
+  failure handling that makes a broken plugin an ordinary state exists once.
 - **The module** — the ninth BotMaker repository, and the third a plugin platform needs: the contract says
   what a plugin contributes, the toolkit is what a plugin compiles against, and this is what a **host** uses
   to load one. It exists because Studio stopped being the only host — the CLI's `validate` and `run`, and

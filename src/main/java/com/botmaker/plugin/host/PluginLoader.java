@@ -1,5 +1,6 @@
 package com.botmaker.plugin.host;
 
+import com.botmaker.plugin.api.CompanionPlugin;
 import com.botmaker.plugin.api.StudioPlugin;
 
 import java.io.Closeable;
@@ -68,10 +69,12 @@ public final class PluginLoader implements Closeable {
 
     private final URLClassLoader loader;
     private final List<StudioPlugin> plugins;
+    private final List<CompanionPlugin> companions;
 
-    private PluginLoader(URLClassLoader loader, List<StudioPlugin> plugins) {
+    private PluginLoader(URLClassLoader loader, List<StudioPlugin> plugins, List<CompanionPlugin> companions) {
         this.loader = loader;
         this.plugins = plugins;
+        this.companions = companions;
     }
 
     /**
@@ -89,11 +92,28 @@ public final class PluginLoader implements Closeable {
         if (urls.length == 0) return null;
 
         URLClassLoader loader = new Inverted(urls, PluginLoader.class.getClassLoader());
-        List<StudioPlugin> found = new ArrayList<>();
+        List<StudioPlugin> found = load(StudioPlugin.class, loader);
+        List<CompanionPlugin> companions = load(CompanionPlugin.class, loader);
+        if (found.isEmpty() && companions.isEmpty()) {
+            close(loader);
+            return null;
+        }
+        return new PluginLoader(loader, found, companions);
+    }
+
+    /**
+     * Every provider of {@code service} on {@code loader}, or an empty list.
+     *
+     * <p>One method for both plugin interfaces rather than two loops, because the failure handling is the
+     * interesting part and it must not exist twice: a classpath carrying one kind and not the other is the
+     * ordinary case, so an empty result here is never news.
+     */
+    private static <T> List<T> load(Class<T> service, URLClassLoader loader) {
+        List<T> found = new ArrayList<>();
         try {
             // Iterated with an explicit loop rather than stream().toList(): a ServiceConfigurationError is
             // thrown lazily, per provider, so one plugin that will not instantiate must not cost the rest.
-            for (StudioPlugin plugin : ServiceLoader.load(StudioPlugin.class, loader)) {
+            for (T plugin : ServiceLoader.load(service, loader)) {
                 found.add(plugin);
             }
         } catch (ServiceConfigurationError | LinkageError | RuntimeException e) {
@@ -103,17 +123,26 @@ public final class PluginLoader implements Closeable {
             // otherwise leave here and abort whatever the host was doing: opening a project.
             // Deliberately not `Error`: a broken plugin must not make an OutOfMemoryError look like a
             // missing services file.
-            System.err.println("Warning: could not load plugins from the project classpath: " + e);
+            System.err.println("Warning: could not load " + service.getSimpleName()
+                    + " providers from the project classpath: " + e);
         }
-        if (found.isEmpty()) {
-            close(loader);
-            return null;
-        }
-        return new PluginLoader(loader, List.copyOf(found));
+        return List.copyOf(found);
     }
 
     public List<StudioPlugin> plugins() {
         return plugins;
+    }
+
+    /**
+     * The {@link CompanionPlugin}s on the same classpath — the plugins that do something beside the user's
+     * code rather than shaping it.
+     *
+     * <p>A second list rather than a merged one: the two interfaces are unrelated types, and a plugin
+     * implementing both is one object appearing in both lists, which is exactly what the host wants — its
+     * palette comes from one and its toolbar from both.
+     */
+    public List<CompanionPlugin> companions() {
+        return companions;
     }
 
     /**

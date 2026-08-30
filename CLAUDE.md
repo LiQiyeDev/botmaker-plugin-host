@@ -37,6 +37,23 @@ Studio, not JavaFX, not `botmaker-shared`. Two reasons, and the second is the op
    `ServiceLoader.load(StudioPlugin.class, loader)` safe without reflecting on a plugin's own classes. A
    third namespace here would be a third namespace to get the parent-first/child-first answer right for.
 
+## Two service types, one pass
+
+Since 2026-08-30 `open()` runs the `ServiceLoader` pass **twice** on the same loader — once for
+`StudioPlugin`, once for `CompanionPlugin` — and exposes them as `plugins()` and `companions()`. Two lists
+rather than one merged list: the interfaces are unrelated types, and a host wants each kind separately (a
+palette comes from one, a toolbar from both).
+
+Two details that are easy to get wrong and have no symptom until they matter:
+
+- **`open()` returns a loader when *either* list is non-empty.** The old rule was "no `StudioPlugin`, no
+  loader", which would treat a project whose only plugin is a companion as a project with no plugins at all
+  — the classloader closed and every companion silently absent.
+- **The two passes share one `load(Class<T>, URLClassLoader)`.** The interesting part of that method is the
+  failure handling — a `ServiceConfigurationError` or a `NoClassDefFoundError` from a plugin whose own
+  dependency is missing is an ordinary state and must be caught — and it is exactly the thing that must not
+  exist in two copies drifting apart.
+
 ## The delegation split, and the thing that will bite
 
 Parent-first for `com.botmaker.plugin.api.`, `java.`, `javax.`, `javafx.`, `jdk.`, `sun.`; child-first for
