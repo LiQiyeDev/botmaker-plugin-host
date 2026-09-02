@@ -1,5 +1,5 @@
 jdk:
-  - openjdk21
+  - openjdk25
 install:
   # The committed pom pins botmaker.studioapi.version to 0.0.0-SNAPSHOT (the reactor/dev value). JitPack
   # cannot resolve a SNAPSHOT, so the tag is injected via -D at build time and the committed pom is never

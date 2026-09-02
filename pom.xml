@@ -34,8 +34,7 @@
       which is a plugin's dependency — loading plugins is the host's job.
     -->
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.2</junit.version>
         <!-- The reactor/offline value. jitpack.yml injects the released tag from .deps.env at build time. -->

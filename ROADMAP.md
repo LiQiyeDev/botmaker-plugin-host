@@ -5,6 +5,12 @@ reasoning.
 
 ## Done
 
+### 2026-09-02 — JDK 25 LTS
+
+`jitpack.yml` → `openjdk25`, the pom to `maven.compiler.release` 25, CI to `java-version: '25'`. Nothing in
+`PluginLoader` changed, delegation prefixes included. The full account of the constellation-wide move is in
+`../botmaker-studio-api/ROADMAP.md`, dated the same day.
+
 ### 2026-08-30 — a second transport was built and reverted the same day
 
 `ProcessPlugin`, `CompanionDescriptor`, `ServicesPeer`, `CompanionLaunchException` and `Wire` — spawning a

@@ -5,6 +5,13 @@ All notable changes to `botmaker-plugin-host`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this module uses
 [semantic versioning](https://semver.org/). `release.sh` refuses to cut a version with no section here.
 
+## [Unreleased]
+
+### Changed
+
+- **Compiled for Java 25 (LTS).** A host embedding the loader needs a 25 runtime. The delegation split and
+  every prefix in it are unchanged.
+
 ## [0.0.1] — 2026-09-02
 
 First release. `0.x` because the contract whose namespace it delegates parent-first is still `0.x`.
