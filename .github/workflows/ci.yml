@@ -39,8 +39,11 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # RETRIED — Maven Central answers 429 to GitHub-hosted runners; see .github/mvn-retry.sh.
       - name: Install botmaker-studio-api (0.0.0-SNAPSHOT)
-        run: mvn -B -f .deps/botmaker-studio-api/pom.xml install -DskipTests
+        run: |
+          source .github/mvn-retry.sh
+          mvn_retry mvn -B -f .deps/botmaker-studio-api/pom.xml install -DskipTests
 
       - name: Build and test
         run: mvn -B verify
