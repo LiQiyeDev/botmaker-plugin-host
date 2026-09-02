@@ -33,7 +33,11 @@ Two things to know before you write the second line:
 
 - **`open` returns `null`, not an empty loader.** An unresolvable pin, a jar with no services file and a
   plugin whose constructor throws are all the same answer, because the caller's fallback is the same in all
-  three: the bundled plugin set. A project must open with the bundled menus rather than with none.
+  three: whatever plugin set it already had. That is deliberately the host's decision and not this module's —
+  `botmaker-studio` has bundled **no** plugin since 2026-09-02, so its fallback is an empty set and a project
+  that resolves nothing opens with no menus rather than with default ones. A host that does bundle plugins
+  gets those. Either way the distinction `open` refuses to draw is *why* nothing resolved, because no caller
+  has ever had a different answer for the three causes.
 - **`close()` is required.** An open `URLClassLoader` holds every jar it read, and on Windows a held jar
   cannot be replaced — a project left unclosed makes the next dependency resolve fail on a file lock.
 
