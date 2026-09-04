@@ -5,6 +5,19 @@ All notable changes to `botmaker-plugin-host`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this module uses
 [semantic versioning](https://semver.org/). `release.sh` refuses to cut a version with no section here.
 
+## [Unreleased]
+
+### Fixed
+
+- **`0.0.4` failed on JitPack too, on a third plugin.** The compiler pin it added was correct; this pom also
+  pinned `flatten-maven-plugin` at **1.6.0**, which declares a Maven 3.6.3 prerequisite, and JitPack's
+  builder runs **Apache Maven 3.6.1** — so the build died with
+  `The plugin org.codehaus.mojo:flatten-maven-plugin:1.6.0 requires Maven version 3.6.3` before publishing
+  anything, and took `botmaker-cli` down with it. Pinned to **1.4.1**, the version `botmaker-session` and
+  `botmaker-sdk` have carried since 2026-08-22. The loader itself is unchanged.
+
+  Use `0.0.5`; `0.0.4` was never published.
+
 ## [0.0.4] — 2026-09-04
 
 ### Fixed

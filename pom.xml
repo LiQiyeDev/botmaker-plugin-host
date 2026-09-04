@@ -106,7 +106,10 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.6.0</version>
+                <!-- Held at 1.4.1 for JitPack, NOT stale: 1.6.0 declares a Maven 3.6.3 prerequisite and
+                     JitPack's build image runs older than that, so the build fails before it publishes
+                     anything. See botmaker-plugin-toolkit/pom.xml for the full account. -->
+                <version>1.4.1</version>
                 <configuration>
                     <flattenMode>oss</flattenMode>
                     <pomElements>
