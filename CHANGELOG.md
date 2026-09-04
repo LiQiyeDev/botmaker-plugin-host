@@ -5,6 +5,16 @@ All notable changes to `botmaker-plugin-host`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this module uses
 [semantic versioning](https://semver.org/). `release.sh` refuses to cut a version with no section here.
 
+## [Unreleased]
+
+### Fixed
+
+- **This module is resolvable from JitPack again.** Neither this pom nor `botmaker-studio-api`'s pinned
+  `maven-compiler-plugin`, and JitPack's Maven defaults it to 3.1 — which predates
+  `maven.compiler.release` and builds with `source 5` (`Source option 5 is no longer supported`). The
+  contract stopped building there on 2026-09-02, so this module could not resolve it and `v0.0.2` was
+  never published. Both are pinned to 3.13.0 now; the loader itself is unchanged.
+
 ## [0.0.2] — 2026-09-02
 
 ### Changed
